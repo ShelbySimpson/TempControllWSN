@@ -1,64 +1,116 @@
-#include <MsTimer2.h>
-#include <Streaming.h>
-#include <Arduino.h>
+#include <QueueArray.h>//data structure to hanlde data packets
+#include <Streaming.h>//Makes output formatting easy
+#include <MsTimer2.h>//handles interrupts
+#include "Thermometer.h"//convert temp data readings 
 
-#define DELAY 100
-#define SLOW 500
-#define FAST 10
-#define FLEX_PIN A1
-#define PIEZO_PIN A0
-#define INDICATOR 7
-/* valid 'sensor' is a character '1' or '2' */
-//force == 1, flex == 2
-char sensor = '0';
+//vars====================================================
+//id for node
+#define ID 1
+//num of nodes in network
+#define num_nodes 1
 
-void setup(){
-  Serial.begin(57600);
-  pinMode(FLEX_PIN, INPUT);
-  pinMode(INDICATOR, OUTPUT);
-  digitalWrite(INDICATOR, LOW);
+#define light_pin A0
+#define therm_pin A1
+#define led_pin 13
+
+//This array will hold all packets
+//For each packet there will be three elements: [id, time, value]
+QueueArray <unsigned short> queue;
+Thermometer therm = Thermometer();
+boolean output = HIGH; //Track if LED should be on or off
+unsigned short tm; //Timer
+//=========================================================
+
+//Helper functions ========================================
+void sample();
+void transmit();
+void stop_sampling();
+//=========================================================
+
+//run program ===============================================
+void setup() {
+  Serial.begin(9600);//baud
+  pinMode(led_pin, OUTPUT); //sync led
+  pinMode(A1, INPUT); //temp sensor
+  tm = 0;//init time
+  // set the printer of the queue.
+  queue.setPrinter(Serial);
 }
 
-void readSensor(){
-  digitalWrite(INDICATOR, HIGH);
-  if( sensor == '1' ){
-    //Read from first sensor
-    Serial << analogRead(PIEZO_PIN) << '\n';
-  }else if( sensor == '2' ){
-    //Read from second sensor
-    Serial << analogRead(FLEX_PIN) << endl;
+void loop() {
+  //init char with a dummy value
+  char cmd = '0';
+  //Get byte off of serial buffer
+  cmd = Serial.read();
+
+  //If R then begin sampling
+  //If S then re-sync
+  //If T then terminate sampling
+  if (cmd == 'R') {
+    //start sampling
+    MsTimer2::set(1000, sample); //Sample 1hz
+    MsTimer2::start();
+  }else if (cmd == 'T') {
+    //Stop sampling
+    MsTimer2::stop();
+    stop_sampling();
   }
 }
+//===================================================================
 
-void loop(){
-  char cmd = '0';
-  char rateChar = '0';
-  int rate = 0;
+//Helper Functions===================================================
+//samples and toggles led in unison.
+void sample() {
+  //Toggle light D13 LED--------------------
+  digitalWrite(led_pin, output);
+  output = !output;
+  //----------------------------------------
+  //create data packet
+  queue.push(tm);
+  queue.push(analogRead(light_pin));  
+  queue.push(therm.getFahrenheit());
 
-    cmd = Serial.read();
-    if( cmd  == 'R' ){
-      delay(DELAY);
-      sensor = Serial.read();
-      delay(DELAY);
-      rateChar = Serial.read();
-      if( (rateChar == 'S' || rateChar == 'F') &&
-          (sensor == '1' || sensor == '2') ){
-        if(rateChar == 'S'){
-          rate = SLOW;
-        }else if( rateChar == 'F' ){
-          rate = FAST;
-        }
-        //start reading;
-        digitalWrite(INDICATOR, LOW);
-        MsTimer2::stop();
-        MsTimer2::set( rate, readSensor );
-        MsTimer2::start();
-      }
-      
-    }else if( cmd == 'S' ){
-      //stop reading
-      digitalWrite(INDICATOR, LOW);
-      MsTimer2::stop();
-    }
-    delay(DELAY);
+
+  //We add 1 to the number of nodes so that we don't get a 0 value on the mod
+  //operation for the last node in the set of nodes
+  if (tm % num_nodes + 1 == ID) { //node's turn to transmit
+    transmit();
+  }
+
+  tm++;//increment the time counter
 }
+
+void stop_sampling() {
+
+  //Allow the node to transmit info
+  delay((ID - 1) * 1000);
+  transmit();
+
+  digitalWrite(led_pin, LOW); //ensure that light is of when iterrupt is stopped
+  tm = 0; //Reset the timer
+}
+
+//Transmit all packets in the buffer and empty it as you go
+void transmit(){
+    unsigned short count = 0; //Used to track if an entire packet has Tx
+
+
+  while (!queue.isEmpty()) {
+    //This will remove the front element in the buffer and pass it to the Serial port
+    Serial << queue.dequeue();
+
+    //Inc counter
+    count++;
+    //If count is 3 then an entire packet has been sent
+    //Reset count, send a new line, and continue
+    //Else add a comma
+    if (count == 3) {
+      count = 0;
+      Serial << endl;
+    }else {
+      Serial << ",";
+    }
+  }
+
+}
+//=============================================================================

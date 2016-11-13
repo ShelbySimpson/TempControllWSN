@@ -1,16 +1,18 @@
 #include <QueueArray.h>//data structure to hanlde data packets
 #include <Streaming.h>//Makes output formatting easy
 #include <MsTimer2.h>//handles interrupts
+#include "Thermometer.h"
 
 //vars====================================================
 //id will be used to determine node's turn to send
 #define ID 1
 //num of nodes in network
-#define num_nodes 3
+#define num_nodes 1
 
 //This array will hold all packets
 //For each packet there will be three elements: [id, time, value]
 QueueArray <unsigned short> queue;
+Thermometer thrm = Thermometer();
 
 boolean output = HIGH; //Track if LED should be on or off
 unsigned short tm; //Timer
@@ -26,13 +28,14 @@ void stop_sampling();
 void setup() {
   Serial.begin(9600);//baud
   pinMode(13, OUTPUT); //sync led
-  pinMode(A0, INPUT); //sensor
+  pinMode(A1, INPUT); //sensor
   tm = 0;//init time
   // set the printer of the queue.
   queue.setPrinter(Serial);
 }
 
 void loop() {
+  //Serial.println(thrm.getFahrenheit());
   //init char with a dummy value
   char cmd = '0';
   //Get byte off of serial buffer
@@ -70,7 +73,7 @@ void sample() {
   //create data packet
   queue.push(ID);
   queue.push(tm);
-  queue.push(analogRead(A0));
+  queue.push(analogRead(A1));
 
 
   //We add 1 to the number of nodes so that we don't get a 0 value on the mod
