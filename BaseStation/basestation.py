@@ -6,6 +6,8 @@ from time import sleep
 import os
 import signal
 import string
+import datetime
+import baseStationHelper as bsh
 
 #explain command line inputs
 def usage():
@@ -57,6 +59,12 @@ def handleSensorData(ser):
             sData = ser.readline().strip();
             data.append(sData);
             print(sData);#let user see bytes, will eventually be saved to csv
+            #seperate data for analysis
+            item = str(sData,'utf-8');#convert from bytes to String
+            sData = item.split(",")
+            time = sData[0]
+            light = sData[1]
+            temp = sData[2]
             sleep(.5);#allow time to handle data before reading again
             sys.stdout.flush();#flush
     
@@ -69,7 +77,7 @@ try:
         os._exit(1)#exit program
     else:
         serial_port = sys.argv[1];#save serial port
-
+    bsh.getStartUpTime("16:55")
     
     #create connection with port
     ser = serial.Serial(serial_port, baud, timeout=1);
@@ -83,3 +91,6 @@ try:
 
 except:
     print( "unexpected error:", sys.exc_info());
+
+
+

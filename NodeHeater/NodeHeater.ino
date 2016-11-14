@@ -48,7 +48,7 @@ void loop() {
   //If T then terminate sampling
   if (cmd == 'R') {
     //start sampling
-    MsTimer2::set(1000, sample); //Sample 1hz
+    MsTimer2::set(5000, sample); //Sample 5hz
     MsTimer2::start();
   }else if (cmd == 'T') {
     //Stop sampling
