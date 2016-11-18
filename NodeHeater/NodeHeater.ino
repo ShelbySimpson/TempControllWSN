@@ -48,6 +48,7 @@ void loop() {
   //If T then terminate sampling
   if (cmd == 'R') {
     //start sampling
+    sample();//initial sample
     MsTimer2::set(1800000, sample); //Sample rate
     MsTimer2::start();
   }else if (cmd == 'T') {
@@ -57,7 +58,8 @@ void loop() {
   }else if(cmd == 'X'){
     //used for demo only.
     //start sampling
-    MsTimer2::set(1000, sample); //Sample rate
+    sample();//initial sample
+    MsTimer2::set(2000, sample); //Sample rate
     MsTimer2::start();
   }
 }
