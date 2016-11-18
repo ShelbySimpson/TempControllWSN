@@ -48,12 +48,17 @@ void loop() {
   //If T then terminate sampling
   if (cmd == 'R') {
     //start sampling
-    MsTimer2::set(1000, sample); //Sample rate
+    MsTimer2::set(1800000, sample); //Sample rate
     MsTimer2::start();
   }else if (cmd == 'T') {
     //Stop sampling
     MsTimer2::stop();
     stop_sampling();
+  }else if(cmd == 'X'){
+    //used for demo only.
+    //start sampling
+    MsTimer2::set(1000, sample); //Sample rate
+    MsTimer2::start();
   }
 }
 //===================================================================
