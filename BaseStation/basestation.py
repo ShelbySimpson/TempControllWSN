@@ -147,9 +147,11 @@ try:
     power = False
     finished = False 
     waiting = True
+    thresholdRelevant = False
     lightThreshold = 400
     #darkLimit = time(2,00)#limit in hours to how long the light can be below threshold
     darkLimit = 7200;#limit in seconds, which is 2hrs
+    darkTime = tm.time();
     print("Now: " ,datetime.now())
     #create connection with port
     ser = serial.Serial(serial_port, baud, timeout=1);
@@ -187,18 +189,36 @@ try:
                     temp = int(sData[2])
 
                     if light < lightThreshold:
-                        darkCounter = tm.time() 
+                        darkTime = tm.time() 
                         print("this is darkcounter: " , darkCounter)
                     print(timeStampData);#let user see data
 
         if not waiting:
-            now = datetime.now()
-            now_time = now.time()
-            currTime = now_time.strftime('%H:%M')
-            if light < lightThreshold:
-                #check to see darkLimit time has expired
-                elapsedTime = now - darkCounter
+            if ser.inWaiting() > 0:
+                #read in line and strip \r\n, for csv formatting purposes
+                #newline is added when written to file.
+                sData = ser.readline().strip();
+                sData = str(sData,'utf-8')
+                timeStampData = sData + "," + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                data.append(timeStampData);
 
+                #seperate data for analysis
+                sData = sData.split(",")
+                light = int(sData[1])
+                temp = int(sData[2])
+
+                if(light > lightThreshold):
+                    print("thresholdRelevant = false")
+                    thresholdRelevant = False
+                elif light < lightThreshold and not thresholdRelevant:
+                    print("thresholdRelevant = True")
+                    thresholdRelevant = True
+                    darkTime = tm.time()
+                elif light < lightThreshold and thresholdRelevant:
+                    if(tm.time() - darkTime) > darkLimit:
+                        thresholdRelevant = False
+                        waiting = True
+                        #Todo - send stop 'T' signal to heather node
 
             if temp >= (dsrTemp + 2):
                 power = False
