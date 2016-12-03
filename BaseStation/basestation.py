@@ -134,7 +134,7 @@ try:
                 #newline is added when written to file.
                 sData = ser.readline().strip();
                 sData = str(sData,'utf-8')
-                timeStampData = sData + "," + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                timeStampData = sData + "," + datetime.now().strftime("%H:%M")
                 data.append(timeStampData);
 
                 #seperate data for analysis
