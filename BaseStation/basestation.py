@@ -106,7 +106,7 @@ try:
                 #WarmUp time, setup system
                 waiting = False
                 #activate sampling from heater node
-                initData = 'X'#X is being used only for demo purposes. R is normal start
+                initData = 'R'#X is being used only for demo purposes. R is normal start
                 initData = initData.encode('utf-8');#encode data,bytes for serial port
                 ser.write(initData);#write data collection has been initialized
                 sleep(.5)
