@@ -55,6 +55,13 @@ void loop() {
     //Stop sampling
     MsTimer2::stop();
     stop_sampling();
+  }else if(cmd == 'N'){
+      //Turn power on
+      digitalWrite(led_pin, HIGH);
+      
+  }else if(cmd == 'F'){
+      //Turn power off
+      digitalWrite(led_pin, LOW);
   }else if(cmd == 'X'){
     //used for demo only.
     //start sampling
@@ -63,14 +70,13 @@ void loop() {
     MsTimer2::start();
   }
 }
-//===================================================================
 
 //Helper Functions===================================================
 //samples and toggles led in unison.
 void sample() {
   //Toggle light D13 LED--------------------
-  digitalWrite(led_pin, output);
-  output = !output;
+  //digitalWrite(led_pin, output);
+  //output = !output;
   //----------------------------------------
   //create data packet
   queue.push(tm);
@@ -93,7 +99,7 @@ void stop_sampling() {
   delay((ID - 1) * 1000);
   transmit();
 
-  digitalWrite(led_pin, LOW); //ensure that light is of when iterrupt is stopped
+  digitalWrite(led_pin, LOW); //ensure that light is off when iterrupt is stopped
   tm = 0; //Reset the timer
 }
 
