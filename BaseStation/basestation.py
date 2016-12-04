@@ -79,7 +79,10 @@ except:
 #===========================================================
 
 try:
-    power = False
+    #given inital startup time to be W/O light, time in seconds
+    allowedWarmUpTime = 20
+    isTemp = False #no inital temp reading
+    samplingRate = 2 #in seconds, 300secs = 5mins 
     finished = False 
     waiting = True
     thresholdRelevant = False
@@ -103,13 +106,17 @@ try:
         #Wakeup actions*********************************************************************
         #check to see if it is wakeup time
         if now_time.strftime('%H:%M') == srtTime.strftime('%H:%M') and waiting == True:
-                #WarmUp time, setup system
+                #light will likely not be on at start up time. Keep track of time
+                #to use with allowedWarmUpTime var
+                warmUpStartTime = tm.time()
+                #take care of init setup-----------------------------------------------
                 waiting = False
                 #activate sampling from heater node
-                initData = 'R'#X is being used only for demo purposes. R is normal start
+                initData = 'X'#X is being used only for demo purposes. R is normal start
                 initData = initData.encode('utf-8');#encode data,bytes for serial port
                 ser.write(initData);#write data collection has been initialized
                 sleep(.5)
+                #----------------------------------------------------------------------
                 #get inital readings
                 if ser.inWaiting() > 0:
                     #read in line and strip \r\n, for csv formatting purposes
@@ -123,12 +130,26 @@ try:
                     sData = sData.split(",")
                     light = int(sData[1])
                     temp = int(sData[2])
+                    isTemp = True #let system know that temp has been recieved
 
                     if light < lightThreshold:
                         darkTime = tm.time() 
                     print(timeStampData);#let user see data
 
         if not waiting:
+            #check to see that node is still sending data
+            if ser.inWaiting() == 0:
+                sleep(samplingRate)
+                if ser.inWaiting() == 0:
+                    print("Temp Light Node is no longer Transmitting Data")
+                    isTemp = False
+                    #turn off power, no response from light temp node
+                    ser.write(b'F')
+                    #itry to activate sampling from heater node
+                    initData = 'X'#X is being used only for demo purposes. R is normal start
+                    initData = initData.encode('utf-8');#encode data,bytes for serial port
+                    ser.write(initData);#write data collection has been initialized
+                    sleep(1)
             if ser.inWaiting() > 0:
                 #read in line and strip \r\n, for csv formatting purposes
                 #newline is added when written to file.
@@ -141,42 +162,72 @@ try:
                 sData = sData.split(",")
                 light = int(sData[1])
                 temp = int(sData[2])
-
+                
+                isTemp = True
+                #==============Light Level Code====================================
+                #level of light determines state of power switch
+                #if light dips below threshold for given amount of time power is
+                #switched off.
                 if(light > lightThreshold):
-                    print ("this is light: ",light)
-                    print("thresholdRelevant = false")
-                    print("1st temp: " , temp)
                     thresholdRelevant = False
+                    print("======light > lightThreshold======")
+                    print("Desired Temp: ",dsrTemp)
+                    print("Current temp: " , temp)
+                    print("lightThreshold: ",lightThreshold)
+                    print ("Current light level: ",light)
+                    print("thresholdRelevant: ", thresholdRelevant)
+                    print("==================================")
                 elif light < lightThreshold and not thresholdRelevant:
-                    print("thresholdRelevant = True")
-                    print("2nd Temp: " , temp)
-                    thresholdRelevant = True
-                    darkTime = tm.time()
+                    #it will be expected that when system starts up at scheduled time 
+                    #there will be no light. If statement accounts for this
+                    if tm.time() - warmUpStartTime > allowedWarmUpTime:
+                        thresholdRelevant = True
+                        darkTime = tm.time()
+                        print("adjust thresholdRelevant t0 true: ", thresholdRelevant)
+                    print("======light < lightThreshold and not thresholdRelevant======")
+                    print("Desired Temp: ",dsrTemp)
+                    print("Current temp: " , temp)
+                    print("lightThreshold: ",lightThreshold)
+                    print ("Current light level: ",light)
+                    print("thresholdRelevant: " ,thresholdRelevant)
+                    print("==================================")
                 elif light < lightThreshold and thresholdRelevant:
-                    print("this is darkTime", tm.time() - darkTime)
-                    print ("this is light: ",light)
-                    print("thresholdRelevantt = True")
-                    print("third temp: ", temp)
-                    passedTime = tm.time() - darkTime
-                    print("This is passedTime: ",passedTime)
-                    if(tm.time() - darkTime) > darkLimit:
+                    print("======light < lightThreshold and thresholdRelevant================")
+                    print("Desired Temp: ",dsrTemp)
+                    print("Current temp: " , temp)
+                    print("lightThreshold: ",lightThreshold)
+                    print ("Current light level: ",light)
+                    print("thresholdRelevant: ", thresholdRelevant)
+                    timeDark = tm.time() - darkTime
+                    print("Time in dark: ",timeDark)
+                    print("==================================")
+                    if timeDark > darkLimit:
+                        print("=====timeDark > darkLimit, Shutdown========")
                         thresholdRelevant = False
                         waiting = True
                         #send message to have heater node quit sampling
                         ser.write(b'T')
                         #turn off power
                         ser.write(b'F')
-        if not waiting:
+                        print("thresholdRelevant to False")
+                        print("waiting to True")
+                        print("Quit sampling and turn of power switch")
+                        print("==================================")
+                #=================================================================
+        #isTemp check will allow system to determine if node lost power
+        if not waiting and isTemp:
+            if  ser.inWaiting():
+                print("Lost Connection")
             if temp >= (dsrTemp + 2):
-                if power:
-                    print("Power off! Temp: ", temp)
-                    power = False
-                    ser.write(b'F')
+                ser.write(b'F')
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                print("Power OFF! Temp: ", temp)
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             elif temp <= (dsrTemp - 2):
-                if not power:
-                    print("Power On! Temp: ", temp)
-                    power = True
-                    ser.write(b'O')
+                ser.write(b'O')
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                print("Power ON! Temp: ", temp)
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 #===========================================================================
 except:
     print( "unexpected error:", sys.exc_info());
